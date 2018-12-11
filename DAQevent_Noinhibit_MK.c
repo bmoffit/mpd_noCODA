@@ -40,10 +40,10 @@ bool ctrl_c = false;
 
 void ctrl_c_HANDLER(int signo)
 {
- if (signo == SIGINT)
- printf("\n CTRL-C pressed \n\r");
- ctrl_c = true; // tell main loop that it has to exit
- return;
+  if (signo == SIGINT)
+    printf("\n CTRL-C pressed \n\r");
+  ctrl_c = true; // tell main loop that it has to exit
+  return;
 }
 
 
@@ -54,17 +54,17 @@ struct timeval t1, t2, t3, t4, t5, t6, t7, t8, t9, t10;
 
 void nsleep(long us)
 {
-    struct timespec wait;
-    //printf("Will sleep for is %ld\n", diff); //This will take extra ~70 microseconds
+  struct timespec wait;
+  //printf("Will sleep for is %ld\n", diff); //This will take extra ~70 microseconds
 
-    wait.tv_sec = us / (1000 * 1000);
-    wait.tv_nsec = (us % (1000 * 1000)) * 1000;
-    nanosleep(&wait, NULL);
+  wait.tv_sec = us / (1000 * 1000);
+  wait.tv_nsec = (us % (1000 * 1000)) * 1000;
+  nanosleep(&wait, NULL);
 }
 
 int tdiff_usecs(struct timeval t2, struct timeval t1)
 {
-   return (t2.tv_sec-t1.tv_sec)*1000000 + (t2.tv_usec-t1.tv_usec);
+  return (t2.tv_sec-t1.tv_sec)*1000000 + (t2.tv_usec-t1.tv_usec);
 }
 
 
@@ -81,7 +81,8 @@ main(int argc, char *argv[])
   int rdone, rtout, trigtout;
 
   int dCnt;
-  int word_offset = 0;
+  int channel_data_offset[16];
+  int ch_nwread[16];
   int timeout = 0;
 
   uint16_t mfull,mempty;
@@ -128,9 +129,6 @@ main(int argc, char *argv[])
   printf(" n_event = %d\n", n_event);
 
 
-
-  int mpdPrintDebug = 1;
-
   int vint_data;
   uint32_t v_data;
 #define MPD_TIMEOUT 10
@@ -138,12 +136,6 @@ main(int argc, char *argv[])
   extern int mpdOutputBufferBaseAddr;	/* output buffer base address */
   extern int mpdOutputBufferSpace;	/* output buffer space (8 Mbyte) */
 #define DMA_BUFSIZE 80000
-
-  extern GEF_VME_BUS_HDL vmeHdl;
-  GEF_VME_DMA_HDL dmaHdl;
-  uint32_t vmeAdrs;
-  unsigned long physMemBase;
-  uint32_t *fBuffer;		// DMA data buffer
 
   //Output file TAG
 #define VERSION_TAG 0xE0000000
@@ -165,12 +157,13 @@ main(int argc, char *argv[])
   extern DMANODE *the_event;
   /*! Data pointer */
   extern unsigned int *dma_dabufp;
-  vmeIN = dmaPCreate("vmeIN",1024,4,0);
-  vmeOUT = dmaPCreate("vmeOUT",0,0,0);
+
+  /* Create the event buffers */
+  vmeIN  = dmaPCreate("vmeIN", DMA_BUFSIZE, 1, 0);
+  vmeOUT = dmaPCreate("vmeOUT", 0, 0, 0);
 
   /* Default block level */
   unsigned int BLOCKLEVEL = 1;
-  #define BT_UI4  BT_UI4_ty
 
 #define BUFFERLEVEL 1
 
@@ -189,7 +182,7 @@ main(int argc, char *argv[])
   vmeDmaConfig(2,2,0); // 2,2,0 - A32-BLK32-SST160  2,3,0 A32-MBLK-sst160
   vmeDmaAllocLLBuffer();
 
- /*****************
+  /*****************
    *   MPD SETUP
    *****************/
   int rval = OK;
@@ -233,7 +226,7 @@ main(int argc, char *argv[])
     for (j=0;j<MAX_HDATA;j++) {
       // printf("Me-histo read/write ch=%d rval=0x%x\n",j,hdata[j]);
       if (hdata[j]!=j) {
-		printf("ERROR matching histo read/write ch=%d rval=0x%x\n",j,hdata[j]);
+	printf("ERROR matching histo read/write ch=%d rval=0x%x\n",j,hdata[j]);
 	error_count++;
       }
     }
@@ -281,11 +274,11 @@ main(int argc, char *argv[])
       }
       int count =0;
       /*       do{
-	 count++;
-	 printf("Configure again, single APV on MPD slot %d\n",i);
-	 mpdAPV_Config(i,j);
-	 printf("Configure apv card %d in MPD slot %d\n",j,i);
-       } while (count<1);
+	       count++;
+	       printf("Configure again, single APV on MPD slot %d\n",i);
+	       mpdAPV_Config(i,j);
+	       printf("Configure apv card %d in MPD slot %d\n",j,i);
+	       } while (count<1);
       */
     }
     //  } while (1);
@@ -311,27 +304,27 @@ main(int argc, char *argv[])
 
   // printf("\n\n\n\n\n \t\t\t\t v262 check !!!!!!!!\n\n\n\n\n");
   /*
-  unsigned int v262_Local_Addr;
-  int res= vmeBusToLocalAdrs(0x39, (char *) v262_BASE_ADDR, (char **) &v262_Local_Addr);
-  printf("Result: %i \n", res);
-  unsigned int * addr;
-  addr = v262_Local_Addr + V262_FIRM_REVISION_R;
-  printf ("v262 Firmware : %x \n -------------!!!!!! ", vmeRead16(addr));
-  //  printf ("v262 Firmware : %x \n -------------!!!!!! ", vmeBusRead16(0x2f,&addr));
-  unsigned int rval;
-  int mem_res=vmeMemProbe((char *)addr,2,(char *) &rval);
-  printf("MemProbe return value: result = %i , ReadVal= %i \n", mem_res,  rval);
+    unsigned int v262_Local_Addr;
+    int res= vmeBusToLocalAdrs(0x39, (char *) v262_BASE_ADDR, (char **) &v262_Local_Addr);
+    printf("Result: %i \n", res);
+    unsigned int * addr;
+    addr = v262_Local_Addr + V262_FIRM_REVISION_R;
+    printf ("v262 Firmware : %x \n -------------!!!!!! ", vmeRead16(addr));
+    //  printf ("v262 Firmware : %x \n -------------!!!!!! ", vmeBusRead16(0x2f,&addr));
+    unsigned int rval;
+    int mem_res=vmeMemProbe((char *)addr,2,(char *) &rval);
+    printf("MemProbe return value: result = %i , ReadVal= %i \n", mem_res,  rval);
 
-  //Trigger latching
-  unsigned int *latch_addr;
-  latch_addr = v262_Local_Addr + V262_NIM_LEVEL_W;
-  unsigned int *pulse_nim_addr;
-  pulse_nim_addr = v262_Local_Addr + V262_NIM_PULSE_W;
-  unsigned int *latch_to_poll_event;
-  latch_to_poll_event = v262_Local_Addr + V262_NIM_LEVEL_R;
+    //Trigger latching
+    unsigned int *latch_addr;
+    latch_addr = v262_Local_Addr + V262_NIM_LEVEL_W;
+    unsigned int *pulse_nim_addr;
+    pulse_nim_addr = v262_Local_Addr + V262_NIM_PULSE_W;
+    unsigned int *latch_to_poll_event;
+    latch_to_poll_event = v262_Local_Addr + V262_NIM_LEVEL_R;
 
-  vmeWrite16(pulse_nim_addr, 1); //In order to activate the latching
-  vmeWrite16(latch_addr, 1);  // Turn on microbusy latch = Disable the trigger
+    vmeWrite16(pulse_nim_addr, 1); //In order to activate the latching
+    vmeWrite16(latch_addr, 1);  // Turn on microbusy latch = Disable the trigger
   */
 
   /*
@@ -423,10 +416,10 @@ main(int argc, char *argv[])
   signal(SIGINT, ctrl_c_HANDLER); ///Anusha did for ctrl_c
 
 
-    /********************************************
-     * HISTO Mode; sampled data are histogrammed
-     * only for testing, non for normal daq
-     ********************************************/
+  /********************************************
+   * HISTO Mode; sampled data are histogrammed
+   * only for testing, non for normal daq
+   ********************************************/
 
   if (acq_mode & 0x4) {
 
@@ -595,7 +588,7 @@ main(int argc, char *argv[])
 
     gettimeofday(&t1, NULL); // Get Time t1
     gettimeofday(&t8, NULL); // Get Time t8
-/////////////////////////////
+    /////////////////////////////
 
 
     evt=0;
@@ -609,218 +602,237 @@ main(int argc, char *argv[])
 
 
 #ifdef DEBUG
-      printf(" ---- Waiting for trigger now -----\n");
+    printf(" ---- Waiting for trigger now -----\n");
 #endif
 
-   do { // simulate loop on trigger
+    do { // simulate loop on trigger
       //  sleep(1); // wait for event
 #ifdef DEBUG
       printf(" ---- Waiting for event %d to occur -----\n",evt);
 #endif
 
-  /* Readout MPD */
-  // open out file
+      /* Readout MPD */
+      // open out file
 
-    int UseSdram, FastReadout;
-    int empty, full, nwords, obuf_nblock;
-    int nwread;
-    int iw, blen;
-    int verbose_level = 2;
+      int UseSdram, FastReadout;
+      int empty, full, nwords, obuf_nblock;
+      int nwread;
+      int iw, blen;
+      int verbose_level = 2;
 
-    UseSdram = mpdGetUseSdram(mpdSlot(0));	// assume sdram and fastreadout are the same for all MPDs
-    FastReadout = mpdGetFastReadout(mpdSlot(0));
+      UseSdram = mpdGetUseSdram(mpdSlot(0));	// assume sdram and fastreadout are the same for all MPDs
+      FastReadout = mpdGetFastReadout(mpdSlot(0));
 
-    printf("\n\n ========= UseSDRAM= %d , FastReadout= %d\n", UseSdram, FastReadout);
+      printf("\n\n ========= UseSDRAM= %d , FastReadout= %d\n", UseSdram, FastReadout);
 
-  // -> now trigger can be enabled
-
-
-/* Readout MPD */
-  // open out file
+      // -> now trigger can be enabled
 
 
-  int tout, impd, id;
-  for (impd = 0; impd < fnMPD; impd++)
-    {				// only active mpd set
-      id = mpdSlot(impd);
-      //   vmeSetQuietFlag(1);
-      //   vmeClearException(1);
-      mpdArmReadout(id);		// prepare internal variables for readout @@ use old buffer scheme, need improvement
-      //blen = mpdApvGetBufferAvailable(i, 0);
-      if (UseSdram)
-	{
+      /* Readout MPD */
+      // open out file
+
+
+      int tout, impd, id;
+      for (impd = 0; impd < fnMPD; impd++)
+	{				// only active mpd set
+	  GETEVENT(vmeIN, impd);  /* Initialize dma_dabufp pointer to current event buffer */
+
+	  id = mpdSlot(impd);
+	  //   vmeSetQuietFlag(1);
+	  //   vmeClearException(1);
+	  mpdArmReadout(id);		// prepare internal variables for readout @@ use old buffer scheme, need improvement
+	  //blen = mpdApvGetBufferAvailable(i, 0);
+
 	  blen = DMA_BUFSIZE;
-	}
-      else
-	{
-	  blen = mpdApvGetBufferAvailable(id, 0);
-	}
-      nwread = 0;
+	  nwread = 0;
 
-      if (UseSdram)
-	{
-
-	  int sd_init, sd_overrun, sd_rdaddr, sd_wraddr, sd_nwords;
-
-	  mpdSDRAM_GetParam(id, &sd_init, &sd_overrun, &sd_rdaddr, &sd_wraddr,
-			    &sd_nwords);
-	  if (verbose_level > 0)
-	    printf
-	      ("SDRAM status: init=%d, overrun=%d, rdaddr=0x%x, wraddr=0x%x, nwords=%d\n",
-	       sd_init, sd_overrun, sd_rdaddr, sd_wraddr, sd_nwords);
-
-	  tout = 0;
-	  while (mpdOBUF_GetBlockCount(id) == 0 && tout < 1000)
+	  if (UseSdram)
 	    {
-	      usleep(10);
-	      tout++;
-	    }
-	  if (tout == 1000)
-	    {
-	      timeout = 1;
 
-	      printf
-		("WARNING: *** Timeout while waiting for data in mpd %d - check MPD/APV configuration\n",
-		 id);
-	    }
+	      int sd_init, sd_overrun, sd_rdaddr, sd_wraddr, sd_nwords;
 
-	  obuf_nblock = mpdOBUF_GetBlockCount(id);
-	  // evb_nblock = mpdGetBlockCount(i);
-
-	  if (obuf_nblock > 0)
-	    {			// read data
-
-	      mpdOBUF_GetFlags(id, &empty, &full, &nwords);
-
+	      mpdSDRAM_GetParam(id, &sd_init, &sd_overrun, &sd_rdaddr, &sd_wraddr,
+				&sd_nwords);
 	      if (verbose_level > 0)
-		printf("OBUFF status: empty=%d, full=%d, nwords=%d\n", empty,
-		       full, nwords);
+		printf
+		  ("SDRAM status: init=%d, overrun=%d, rdaddr=0x%x, wraddr=0x%x, nwords=%d\n",
+		   sd_init, sd_overrun, sd_rdaddr, sd_wraddr, sd_nwords);
 
-	      if (FastReadout > 0)
-		{		//64bit transfer
-		  if (nwords < 128)
-		    {
-		      empty = 1;
-		    }
-		  else
-		    {
-		      nwords *= 2;
-		    }
-		}
-
-	      if (full)
+	      tout = 0;
+	      while (mpdOBUF_GetBlockCount(id) == 0 && tout < 1000)
 		{
+		  usleep(10);
+		  tout++;
+		}
+	      if (tout == 1000)
+		{
+		  timeout = 1;
+
 		  printf
-		    ("\n\n **** OUTPUT BUFFER FIFO is FULL in MPD %d !!! RESET EVERYTHING !!!\n\n",
+		    ("WARNING: *** Timeout while waiting for data in mpd %d - check MPD/APV configuration\n",
 		     id);
-		  //exit(1);
 		}
-	      if (verbose_level > 0)
-		printf("Data waiting to be read in obuf: %d (32b-words)\n",
-		       nwords);
-	      if (nwords > 0)	// was >=
-		{
-		  if (nwords > blen / 4)
-		    {
-		      nwords = blen / 4;
-		    }
 
-		  mpdOBUF_Read(id, dma_dabufp, nwords, &nwread);
+	      obuf_nblock = mpdOBUF_GetBlockCount(id);
+	      // evb_nblock = mpdGetBlockCount(i);
+
+	      if (obuf_nblock > 0)
+		{			// read data
+
+		  mpdOBUF_GetFlags(id, &empty, &full, &nwords);
 
 		  if (verbose_level > 0)
-		    printf
-		      ("try to read %d 32b-words 128b-aligned from obuf, got %d 32b-words\n",
-		       nwords, nwread);
+		    printf("OBUFF status: empty=%d, full=%d, nwords=%d\n", empty,
+			   full, nwords);
 
-		  if (nwords != nwread)
+		  if (FastReadout > 0)
+		    {		//64bit transfer
+		      if (nwords < 128)
+			{
+			  empty = 1;
+			}
+		      else
+			{
+			  nwords *= 2;
+			}
+		    }
+
+		  if (full)
 		    {
 		      printf
-			("ERROR: 32bit-word read count does not match %d %d\n",
-			 nwords, nwread);
+			("\n\n **** OUTPUT BUFFER FIFO is FULL in MPD %d !!! RESET EVERYTHING !!!\n\n",
+			 id);
+		      //exit(1);
 		    }
-		  dma_dabufp += nwread;
-		}
-	    }
-	  else
-	    usleep(10);
+		  if (verbose_level > 0)
+		    printf("Data waiting to be read in obuf: %d (32b-words)\n",
+			   nwords);
+		  if (nwords > 0)	// was >=
+		    {
+		      if (nwords > blen / 4)
+			{
+			  nwords = blen / 4;
+			}
 
-	}
-      else
-	{			// if not Sdram
+		      mpdOBUF_Read(id, dma_dabufp, nwords, &nwread);
 
-	  mpdFIFO_IsEmpty(id, 0, &empty);	//  read fifo channel=0 status
+		      if (verbose_level > 0)
+			printf
+			  ("try to read %d 32b-words 128b-aligned from obuf, got %d 32b-words\n",
+			   nwords, nwread);
 
-	  if (!empty)
-	    {			// read fifo
-	      nwread = blen / 4;
-	      mpdFIFO_ReadSingle(id, 0, mpdApvGetBufferPointer(id, 0, 0),
-				 &nwread, 20);
-	      if (nwread == 0)
-		{
-		  printf
-		    ("ERROR: word read count is 0, while some words are expected back\n");
-		}
-	    }
-
-	}
-
-      if (nwread > 0)
-	{			// data need to be written on file
-
-	  int zero_count;
-	  zero_count = 0;
-	  if (verbose_level > 1)
-	    printf("MPD Slot: %d (dump data on screen)\n", id);	// slot
-
-	  for (iw = 0; iw < nwread; iw++)
-	    {
-	      uint32_t datao;
-	      if (UseSdram)
-		{
-		  datao = LSWAP(the_event->data[iw + word_offset]);
+		      if (nwords != nwread)
+			{
+			  printf
+			    ("ERROR: 32bit-word read count does not match %d %d\n",
+			     nwords, nwread);
+			}
+		      dma_dabufp += nwread;
+		    }
 		}
 	      else
-		datao = mpdApvGetBufferElement(id, 0, iw);
+		usleep(10);
 
-	      if (datao == 0)
+	    }
+	  else
+	    {			// if not Sdram
+	      // Individual Channel readout
+	      int ichan = 0;
+	      memset((char *) channel_data_offset, 0, sizeof(channel_data_offset));
+	      memset((char *) ch_nwread, 0, sizeof(ch_nwread));
+
+	      for(ichan = 0; ichan < 16; ichan++)
 		{
-		  zero_count++;
-		}
-	      if (verbose_level > 1)
-		{		// && ((iw<500) || ((nwread-iw)<501))) {
+		  mpdFIFO_IsEmpty(id, ichan, &empty);	//  read fifo channel status
 
-		  if ((verbose_level > 2) || (iw < 16)
-		      || ((nwread - iw) <= (16 + nwread % 8)))
-		    {
-		      if ((iw % 8) == 0)
+		  if (!empty)
+		    {			// read channel fifo
+		      nwread = blen / 4;
+
+		      // These are addresses for reference, if you want to process data before
+		      // writting to file
+		      channel_data_offset[ichan] =
+			((int) (dma_dabufp) - (int) (&the_event->data[0])) >> 2;
+
+		      mpdFIFO_ReadSingle(id, ichan,
+					 dma_dabufp, // Where to put the data
+					 &ch_nwread[ichan],    // Max data to take [4byte words]
+					 20);        // Nax number of tries to wait until data is ready
+		      if (ch_nwread[ichan] == 0)
 			{
-			  printf("0x%06x:", iw);
+			  printf("ERROR: word read count is 0, while some words are expected back\n");
 			}
-		      printf(" 0x%08x", datao);
-
-		      if (((iw % 8) == 7) || (iw == (nwread - 1)))
+		      else
 			{
-			  printf("\n");
+			  dma_dabufp += ch_nwread[ichan];
 			}
 		    }
-
+		  nwread += ch_nwread[ichan];
 		}
-	      //      if (verbose_level > 1 && iw==500) { printf(" ....\n"); }
 
-	      if ((datao & 0x00E00000) == 0x00A00000)
-		{		// EVENT TRAILER
-//          printf("\n\n   ***** EVENT TRAILER: datao = 0x%08X mpd_evt[%d] = %d\n",datao,i, mpd_evt[i]);
-		  mpd_evt[id]++;
-//          evt=mpd_evt[i];
-		}
-//        evt = (evt > mpd_evt[i]) ? mpd_evt[i] : evt; // evt is the smallest number of events of an MPD
 	    }
 
+	  PUTEVENT(vmeOUT); /* Put this event buffer into the vmeOUT queue */
 
-	  printf("MPD %d: nwords=%d nwcount=%d zero_count=%d evt %d\n", id,
-		 nwords, nwread, zero_count, mpd_evt[id]);
-	}
-    }				// active mpd loop
+	  // Process &| write data to disk
+	  DMANODE *outEvent = dmaPGetItem(vmeOUT);
+
+	  if (outEvent->length > 0)
+	    {			// data need to be written on file
+
+	      int zero_count;
+	      zero_count = 0;
+	      if (verbose_level > 1)
+		printf("MPD Slot: %d (dump data on screen)\n", id);	// slot
+
+	      for (iw = 0; iw < outEvent->length; iw++)
+		{
+		  uint32_t datao;
+		  datao = LSWAP(outEvent->data[iw]);
+
+		  if (datao == 0)
+		    {
+		      zero_count++;
+		    }
+
+		  if (verbose_level > 1)
+		    {		// && ((iw<500) || ((outEvent->length-iw)<501))) {
+
+		      if ((verbose_level > 2) || (iw < 16)
+			  || ((outEvent->length - iw) <= (16 + outEvent->length % 8)))
+			{
+			  if ((iw % 8) == 0)
+			    {
+			      printf("0x%06x:", iw);
+			    }
+			  printf(" 0x%08x", datao);
+
+			  if (((iw % 8) == 7) || (iw == (outEvent->length - 1)))
+			    {
+			      printf("\n");
+			    }
+			}
+
+		    }
+		  //      if (verbose_level > 1 && iw==500) { printf(" ....\n"); }
+
+		  if ((datao & 0x00E00000) == 0x00A00000)
+		    {		// EVENT TRAILER
+		      //          printf("\n\n   ***** EVENT TRAILER: datao = 0x%08X mpd_evt[%d] = %d\n",datao,i, mpd_evt[i]);
+		      mpd_evt[id]++;
+		      //          evt=mpd_evt[i];
+		    }
+		  //        evt = (evt > mpd_evt[i]) ? mpd_evt[i] : evt; // evt is the smallest number of events of an MPD
+		}
+
+
+	      printf("MPD %d: nwords=%d nwcount=%lu zero_count=%d evt %d\n", id,
+		     nwords, outEvent->length, zero_count, mpd_evt[id]);
+	    }
+
+	  dmaPFreeItem(outEvent); // Free event buffer and put it back into the vmeIN queue
+
+	}				// active mpd loop
 
 
 
@@ -836,7 +848,7 @@ main(int argc, char *argv[])
     printf(" ---> writing events data to >%s<...\n",outfile);
     printf(" === STOP DAQ ===\n");
 
- }
+  }
 
 
 
@@ -845,18 +857,18 @@ main(int argc, char *argv[])
   //vmeWrite16(pulse_nim_addr, 1); //In order to activate the latching
   //vmeWrite16(latch_addr, 0); //Turn off microbusy latch = Enable the trigger
 
-  //Release memory for configured APVs
-  for (k=0;k<fnMPD;k++) { // only active mpd set
-    i = mpdSlot(k);
-    for (j=0; j < mpdGetNumberAPV(i); j++) {
-      if (mpdApvEnabled(i,j)) {
-	mpdApvBufferFree(i,j);
-      }
-    }
-  }
+  //Release memory
+  dmaPFreeAll();
 
   vmeCloseDefaultWindows();
 
   exit(0);
 
 }
+
+
+/*
+  Local Variables:
+  compile-command: "make -B DEBUG=0"
+  End:
+*/
