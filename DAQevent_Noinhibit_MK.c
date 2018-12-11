@@ -749,8 +749,10 @@ main(int argc, char *argv[])
 		    {			// read channel fifo
 		      nwread = blen / 4;
 
-		      // These are addresses for reference, if you want to process data before
-		      // writting to file
+		      // channel_data_offset[] are index references in data[] to the
+		      // beginning of each channel
+		      // (these might be helpful if you need to add headers/trailers
+		      //  to the data)
 		      channel_data_offset[ichan] =
 			((int) (dma_dabufp) - (int) (&the_event->data[0])) >> 2;
 
