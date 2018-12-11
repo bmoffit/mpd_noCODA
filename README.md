@@ -1,6 +1,10 @@
 # mpd_noCODA
-Program to readout MPDs without CODA or TI support.
+Example program to readout MPDs without CODA or TI support.
+
+Requires [jvme] and [mpd] libraries.
 
 Compile with
    make
    
+[jvme]: https://github.com/JeffersonLab/jvme
+[mpd]: https://github.com/JeffersonLab/mpd
