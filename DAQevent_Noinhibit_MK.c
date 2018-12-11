@@ -1,7 +1,7 @@
 /*
  * File:
- *    mpdLibTest.c
-
+ *    DAQevent_Noinhibit_MK.c
+ *
  * Description:
  *    Simply evolving program to test the mpd library
  *
@@ -19,9 +19,8 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <unistd.h>
+#include <string.h>
 //#include <sys/time.h>
-#include "dmaBankTools.h"
-#include "BankTools.h"
 
 #define DEBUG
 
@@ -136,10 +135,6 @@ main(int argc, char *argv[])
   uint32_t v_data;
 #define MPD_TIMEOUT 10
 
-  pthread_mutex_t mpdMutex = PTHREAD_MUTEX_INITIALIZER;
-#define MPDLOCK      if(pthread_mutex_lock(&mpdMutex)<0) perror("pthread_mutex_lock");
-#define MPDUNLOCK    if(pthread_mutex_unlock(&mpdMutex)<0) perror("pthread_mutex_unlock");
-  extern volatile struct mpd_struct *MPDp[(MPD_MAX_BOARDS + 1)];	/* pointers to MPD memory map */
   extern int mpdOutputBufferBaseAddr;	/* output buffer base address */
   extern int mpdOutputBufferSpace;	/* output buffer space (8 Mbyte) */
 #define DMA_BUFSIZE 80000
@@ -623,32 +618,8 @@ main(int argc, char *argv[])
       printf(" ---- Waiting for event %d to occur -----\n",evt);
 #endif
 
-    printf("BT_UI4 = %d\n", BT_UI4);
-
-
-    /*
-    BANKOPEN(4, BT_UI4, 0);
-
-    vmeDmaConfig(2, 5, 1);
-    dCnt = tiReadBlock(dma_dabufp, 8 + (3 * BLOCKLEVEL), 1);
-    if (dCnt <= 0)
-      {
-	printf("No data or error.  dCnt = %d\n", dCnt);
-	word_offset = 0;
-      }
-    else
-      {
-	dma_dabufp += dCnt;
-	word_offset = dCnt;
-      }
-
-    BANKCLOSE;
-    */
-
   /* Readout MPD */
   // open out file
-
-    BANKOPEN(10, BT_UI4, 0);
 
     int UseSdram, FastReadout;
     int empty, full, nwords, obuf_nblock;
@@ -707,7 +678,7 @@ main(int argc, char *argv[])
 	  if (tout == 1000)
 	    {
 	      timeout = 1;
-	      //tiSetBlockLimit(1);
+
 	      printf
 		("WARNING: *** Timeout while waiting for data in mpd %d - check MPD/APV configuration\n",
 		 id);
@@ -853,8 +824,6 @@ main(int argc, char *argv[])
 
 
 
-
-  BANKCLOSE;
 
       // maybe user is tired and wants to stop the run:
       //printf("crl_c = %d\n", ctrl_c);
