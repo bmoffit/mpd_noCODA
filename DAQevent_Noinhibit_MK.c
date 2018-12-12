@@ -22,7 +22,12 @@
 #include <string.h>
 //#include <sys/time.h>
 
-#define DEBUG
+DMA_MEM_ID vmeIN, vmeOUT;
+/*! Buffer node pointer */
+extern DMANODE *the_event;
+/*! Data pointer */
+extern unsigned int *dma_dabufp;
+
 
 // Base address of v262 module:
 //unsigned int  v262_BASE_ADDR =0xcc3300;
@@ -152,16 +157,6 @@ main(int argc, char *argv[])
   // End of MPD definition
 
 
-  DMA_MEM_ID vmeIN, vmeOUT;
-  /*! Buffer node pointer */
-  extern DMANODE *the_event;
-  /*! Data pointer */
-  extern unsigned int *dma_dabufp;
-
-  /* Create the event buffers */
-  vmeIN  = dmaPCreate("vmeIN", DMA_BUFSIZE, 1, 0);
-  vmeOUT = dmaPCreate("vmeOUT", 0, 0, 0);
-
   /* Default block level */
   unsigned int BLOCKLEVEL = 1;
 
@@ -178,6 +173,12 @@ main(int argc, char *argv[])
       printf("ERROR opening default VME windows\n");
       goto CLOSE;
     }
+
+  /* Create the event buffers */
+  vmeIN  = dmaPCreate("vmeIN", DMA_BUFSIZE, 1, 0);
+  vmeOUT = dmaPCreate("vmeOUT", 0, 0, 0);
+  /* dmaPStatsAll(); */
+  /* dmaPReInitAll(); */
 
   vmeDmaConfig(2,2,0); // 2,2,0 - A32-BLK32-SST160  2,3,0 A32-MBLK-sst160
   vmeDmaAllocLLBuffer();
@@ -533,7 +534,7 @@ main(int argc, char *argv[])
 	  {
 	    printf(" *** ERROR *** - Cannot open >last.run< \n");
 	    exit(1);
-	  };
+	  }
 
 	int runno=0;
 	fscanf(runnofile, "%d", &runno);
